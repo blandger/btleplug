@@ -27,26 +27,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 eprintln!("->>> BLE peripheral devices were not found, sorry. Exiting...");
             } else {
                 // all peripheral devices in range
+                println!("Found '{}' peripherals: ...", peripherals.len());
                 for peripheral in peripherals.iter() {
                     let properties = peripheral.properties().await?;
                     let is_connected = peripheral.is_connected().await?;
                     println!(
                         "peripheral : {:?} is connected: {:?}",
                         properties.local_name,
-                        peripheral.is_connected().await?
+                        is_connected
                     );
                     if properties.local_name.is_some() && !is_connected {
                         println!(
-                            "start connect to peripheral : {:?}...",
-                            properties.local_name
+                            "start connect to peripheral : {:?}, address = {:?}",
+                            properties.local_name,
+                            properties.address
                         );
-                        peripheral
+                        let connect_result = peripheral
                             .connect()
-                            .await
-                            .expect("Can't connect to peripheral...");
+                            .await;
+                        match connect_result {
+                            Ok(_) => {}
+                            Err(err) => {
+                                eprintln!("Can't connect to peripheral, skipping due to error = {:?}...", err);
+                                continue;
+                            }
+                        }
                         let is_connected = peripheral.is_connected().await?;
                         println!(
-                            "now connected (\'{:?}\') to peripheral : {:?}...",
+                            "now connected (\'{:?}\') to peripheral : {:?}",
                             is_connected, properties.local_name
                         );
                         let chars = peripheral.discover_characteristics().await?;
