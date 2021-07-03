@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         eprintln!("Bluetooth adapter(s) were NOT found, sorry...");
     } else {
         for adapter in adapter_list.iter() {
-            println!("connecting to BLE adapter: ...");
+            println!("Starting scan...");
 
             adapter
                 .start_scan()
@@ -29,57 +29,43 @@ async fn main() -> Result<(), Box<dyn Error>> {
             if peripherals.is_empty() {
                 eprintln!("->>> BLE peripheral devices were not found, sorry. Exiting...");
             } else {
-                // all peripheral devices in range
+                // All peripheral devices in range
                 for peripheral in peripherals.iter() {
                     let properties = peripheral.properties().await?;
                     let is_connected = peripheral.is_connected().await?;
-                    let local_name = properties.local_name.unwrap_or(String::from("Unknown prop name"));
+                    let local_name = properties
+                        .local_name
+                        .unwrap_or(String::from("(peripheral name unknown)"));
                     println!(
-                        "peripheral : {:?} is connected: {:?}",
-                        local_name,
-                        is_connected
+                        "Peripheral {:?} is connected: {:?}",
+                        local_name, is_connected
                     );
                     if !is_connected {
-                        println!(
-                            "start connect to peripheral : {:?}...",
-                            &local_name
-                        );
-                        let connect_result = peripheral
-                            .connect()
-                            .await;
-                        match connect_result {
-                            Ok(_) => {}
-                            Err(err) => {
-                                eprintln!("Can't connect to peripheral, skipping due to error = {:?}...", err);
-                                continue;
-                            }
-                        }
-                        let is_connected = peripheral.is_connected().await?;
-                        println!(
-                            "now connected (\'{:?}\') to peripheral : {:?}...",
-                            is_connected, &local_name
-                        );
-                        let chars = peripheral.discover_characteristics().await?;
-                        if is_connected {
-                            println!(
-                                "Discover peripheral : \'{:?}\' characteristics...",
-                                &local_name
+                        println!("Connecting to peripheral {:?}...", &local_name);
+                        if let Err(err) = peripheral.connect().await {
+                            eprintln!(
+                                "Can't connect to peripheral, skipping due to error = {:?}...",
+                                err
                             );
-                            for characteristic in chars.into_iter() {
-                                println!("{:?}", characteristic);
-                            }
-                            println!(
-                                "disconnecting from peripheral : {:?}...",
-                                &local_name
-                            );
-                            peripheral
-                                .disconnect()
-                                .await
-                                .expect("Error on disconnecting from BLE peripheral ");
+                            continue;
                         }
-                    } else {
-                        //sometimes peripheral is not discovered completely
-                        eprintln!("SKIP connect to UNKNOWN peripheral : {:?}", peripheral);
+                    }
+                    let is_connected = peripheral.is_connected().await?;
+                    println!(
+                        "Now connected ({:?}) to peripheral {:?}...",
+                        is_connected, &local_name
+                    );
+                    let chars = peripheral.discover_characteristics().await?;
+                    if is_connected {
+                        println!("Discover peripheral {:?} characteristics...", &local_name);
+                        for characteristic in chars.into_iter() {
+                            println!("{:?}", characteristic);
+                        }
+                        println!("Disconnecting from peripheral {:?}...", &local_name);
+                        peripheral
+                            .disconnect()
+                            .await
+                            .expect("Error disconnecting from BLE peripheral");
                     }
                 }
             }
