@@ -27,12 +27,6 @@ fn my_on_notification_handler(data: ValueNotification) {
     println!("Received data from [{:?}] = {:?}", data.uuid, rdr);
 }
 
-/**
-If you are getting run time error like that :
- thread 'main' panicked at 'Can't scan BLE adapter for connected devices...: PermissionDenied',
- you can try to run app with > sudo ./discover_adapters_peripherals
- on linux
-**/
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 
@@ -66,26 +60,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     if local_name.contains(PERIPHERAL_NAME_MATCH_FILTER) {
                         println!("found matching peripheral : {:?}...", &local_name);
                         if !is_connected { // we can be connected previously
-                            let connect_result = peripheral
+                            if let Err(err)  = peripheral
                                 .connect()
-                                .await;
-                            match connect_result {
-                                Ok(_) => {}
-                                Err(err) => {
-                                    eprintln!("Can't connect to peripheral, skipping due to error = {:?}...", err);
-                                    continue;
-                                }
+                                .await {
+                                eprintln!("Can't connect to peripheral, skipping due to error = {:?}...", err);
+                                continue;
                             }
                         }
                         let is_connected = peripheral.is_connected().await?;
                         println!(
-                            "now connected (\'{:?}\') to peripheral : {:?}...",
+                            "now connected ({:?}) to peripheral : {:?}...",
                             is_connected, &local_name
                         );
                         let chars = peripheral.discover_characteristics().await?;
                         if is_connected {
                             println!(
-                                "Discover peripheral : \'{:?}\' characteristics...",
+                                "Discover peripheral : {:?} characteristics...",
                                 local_name
                             );
                             for char_item in chars.into_iter() {
